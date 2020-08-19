@@ -17,7 +17,6 @@ setup(
     packages=["podop"],
     include_package_data=True,
     scripts=["scripts/podop"],
-    install_requires=[
-        "aiohttp"
-    ]
+    install_requires=["aiohttp"],
+    extras_require={"redis": ["aioredis"]},
 )

@@ -11,13 +11,13 @@ from podop import postfix, dovecot, table
 
 
 SERVER_TYPES = dict(
-    postfix=postfix.SocketmapProtocol,
-    dovecot=dovecot.DictProtocol
+    postfix=postfix.SocketmapProtocol, dovecot=dovecot.DictProtocol
 )
 
-TABLE_TYPES = dict(
-    url=table.UrlTable
-)
+TABLE_TYPES = dict(url=table.UrlTable)
+
+if table.HAS_REDIS:
+    TABLE_TYPES["redis"] = table.RedisTable
 
 
 def run_server(verbosity, server_type, socket, tables):
@@ -31,16 +31,23 @@ def run_server(verbosity, server_type, socket, tables):
         for name, table_type, param in tables
     }
     # Run the main loop
-    logging.basicConfig(stream=sys.stderr, level=max(3 - verbosity, 0) * 10,
-                        format='%(name)s (%(levelname)s): %(message)s')
+    logging.basicConfig(
+        stream=sys.stderr,
+        level=max(3 - verbosity, 0) * 10,
+        format="%(name)s (%(levelname)s): %(message)s",
+    )
     loop = asyncio.get_event_loop()
-    server = loop.run_until_complete(loop.create_unix_server(
-        SERVER_TYPES[server_type].factory(table_map), socket
-    ))
+    server = loop.run_until_complete(
+        loop.create_unix_server(
+            SERVER_TYPES[server_type].factory(table_map), socket
+        )
+    )
     try:
         loop.run_forever()
     except KeyboardInterrupt:
         pass
     server.close()
     loop.run_until_complete(server.wait_closed())
+    for table in TABLE_TYPES.values():
+        loop.run_until_complete(table.teardown())
     loop.close()
